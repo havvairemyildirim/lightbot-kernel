@@ -1,14 +1,20 @@
 
 class LightBot:
-    def __init__(self, size=10):
-        # Initialize the terrain and bot properties
+    def __init__(self, size=10, levels=5):
         self.size = size
-        self.terrain = [[[{'height': 0, 'light': False, 'bot': False} for _ in range(size)] for _ in range(size)]]
+        self.levels = levels
+        self.terrain = [[[{'height': z, 'light': False, 'bot': False, 'blue': False}
+                          for _ in range(size)] for _ in range(size)] for z in range(levels)]
         self.position = [0, 0, 0]  # Starting at (x, y, z)
         self.direction = 1  # 0: Up, 1: Right, 2: Down, 3: Left
 
         # Mark the bot's initial position
         self.terrain[self.position[2]][self.position[0]][self.position[1]]['bot'] = True
+
+        # Example blue blocks
+        self.terrain[0][1][1]['blue'] = True
+        self.terrain[1][2][2]['blue'] = True
+        self.terrain[2][3][3]['blue'] = True
 
     def move_forward(self):
         current_block = self.terrain[self.position[2]][self.position[0]][self.position[1]]
@@ -31,7 +37,6 @@ class LightBot:
         current_block = self.terrain[self.position[2]][self.position[0]][self.position[1]]
         current_block['bot'] = False  # Remove bot from current block
 
-        # Calculate the next position
         next_x, next_y = self.position[0], self.position[1]
         if self.direction == 0:  # Up
             next_x -= 1
@@ -42,17 +47,18 @@ class LightBot:
         elif self.direction == 3:  # Left
             next_y -= 1
 
-        # Check bounds and adjust z-level
         if 0 <= next_x < self.size and 0 <= next_y < self.size:
-            next_height = self.terrain[0][next_x][next_y]['height']  # Assuming only one level for now
-            self.position = [next_x, next_y, next_height]
+            for z in range(self.levels - 1, -1, -1):
+                if self.terrain[z][next_x][next_y]['height'] == z:
+                    self.position = [next_x, next_y, z]
+                    break
 
-        # Update bot's new position
         self.terrain[self.position[2]][self.position[0]][self.position[1]]['bot'] = True
 
     def toggle_light(self):
         block = self.terrain[self.position[2]][self.position[0]][self.position[1]]
-        block['light'] = not block['light']
+        if block['blue']:  # Only toggle lights on blue blocks
+            block['light'] = not block['light']
 
     def turn_right(self):
         self.direction = (self.direction + 1) % 4
@@ -72,39 +78,38 @@ class LightBot:
         elif instruction == '*':
             self.jump()
 
-    def print_initial_condition(self):
-        print("Initial Bot Position and Terrain Light Conditions:")
-        for row in self.terrain[self.position[2]]:
-            print(' '.join([f"{'X' if block['bot'] else ' '}{' on' if block['light'] else ' off'}" for block in row]))
-        print()  # Newline for better readability
-
     def print_status(self):
-        # Map direction to string
         direction_map = {0: "Up", 1: "Right", 2: "Down", 3: "Left"}
-        # Get the current light state
-        light_state = "On" if self.terrain[self.position[2]][self.position[0]][self.position[1]]['light'] else "Off"
-
+        block = self.terrain[self.position[2]][self.position[0]][self.position[1]]
+        light_state = "On" if block['light'] else "Off"
         print(f"Bot Position: {self.position}")
         print(f"Direction: {direction_map[self.direction]}")
         print(f"Light State: {light_state}")
 
-    def print_terrain_light_condition(self):
-        # Print the state of the terrain lights and bot presence
+    def print_terrain(self):
+        z = self.position[2]  # Show only the current level
         print("Terrain Light Conditions and Bot Presence:")
-        for row in self.terrain[self.position[2]]:
-            print(' '.join([f"{'X' if block['bot'] else ' '}{' on' if block['light'] else ' off'}" for block in row]))
+        for row in self.terrain[z]:
+            print(' '.join([
+                f"{'X' if block['bot'] else ''}"
+                f"{'(off)' if not block['blue'] and not block['light'] else ''}"
+                f"{' off' if block['blue'] and not block['light'] else ''}"
+                f"{' on' if block['light'] else ''}"
+                for block in row
+            ]))
         print()  # Newline for better readability
 
     def execute_instructions(self, instructions):
         for instruction in instructions:
             self.interpret_instruction(instruction)
+            print("--------")  # Separator between steps
             self.print_status()
-            self.print_terrain_light_condition()
+            self.print_terrain()
 
 
 # Initialize the game
 print("Let's play the game!")
 instructions = input("Enter instructions for the bot (^, >, <, @, *): ")
 light_bot = LightBot()
-light_bot.print_initial_condition()  # Print initial conditions
+light_bot.print_terrain()  # Print initial terrain
 light_bot.execute_instructions(instructions)
